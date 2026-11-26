@@ -456,22 +456,53 @@
     footer a:hover { color: var(--accent); }
 
     /* ====== RESPONSIVE ====== */
-    @media (max-width: 640px) {
-      .top-bar { flex-direction: column; align-items: stretch; }
-      .controls-right { justify-content: space-between; }
-      .brand-logo { width: 36px; height: 36px; }
-      h1 { font-size: 1.2rem; }
-      .subtitle { font-size: 0.8rem; }
-      .tab-btn { flex: 1; text-align: center; font-size: 0.82rem; padding: 0.55rem 0.5rem; }
-      .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); }
-      .shot-card img { height: 120px; }
-      .plugin-card { flex-direction: column; align-items: flex-start; }
-      .plugin-icon { width: 40px; height: 40px; }
+    @media (max-width: 768px) {
+      main { padding-block: 1rem; }
+      .card { padding: 1rem; margin-bottom: 0.85rem; border-radius: var(--radius-md); }
+      .card h2 { font-size: 1.1rem; }
+      .card h3 { font-size: 1rem; }
+      
+      .header-inner { padding-block: 0.85rem; }
+      .top-bar { gap: 0.75rem; }
+      .brand-logo { width: 34px; height: 34px; }
+      h1 { font-size: 1.15rem; }
+      .subtitle { font-size: 0.75rem; line-height: 1.3; }
+      
+      .controls-right { gap: 0.4rem; }
+      .theme-toggle { width: 34px; height: 34px; }
+      .lang-btn { padding: 0.35rem 0.6rem; }
+      
+      nav { gap: 0.25rem; margin-top: 0.75rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .tab-btn { flex: 1; white-space: nowrap; padding: 0.6rem 0.4rem; font-size: 0.85rem; }
+      
+      .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr)); gap: 0.6rem; }
+      .shot-card img { height: 110px; }
+      .grid { grid-template-columns: 1fr; gap: 0.75rem; }
+      .plugin-card { padding: 0.85rem; gap: 0.75rem; }
+      .plugin-icon { width: 44px; height: 44px; }
+      
+      pre { font-size: 0.75rem; padding: 0.75rem; word-break: break-word; white-space: pre-wrap; }
+      
+      .actions .btn { padding: 0.6rem 0.8rem; font-size: 0.85rem; flex: 1 1 auto; justify-content: center; text-align: center; }
+      .btn { padding: 0.5rem 0.75rem; }
+      
+      #presentacion .card div[style*="flex-wrap"] { gap: 0.35rem !important; }
+      #presentacion .card span { font-size: 0.7rem !important; padding: 0.25rem 0.5rem !important; }
+      
+      footer { padding: 1rem 0; font-size: 0.75rem; }
     }
 
-    @media (max-width: 400px) {
-      .controls-right { flex-wrap: wrap; }
-      .btn { flex: 1; justify-content: center; }
+    @media (max-width: 480px) {
+      #link-repo {
+        flex: 1 0 100%;
+        order: 3;
+        margin-top: 0.25rem;
+        padding: 0.6rem;
+      }
+      .controls-right {
+        justify-content: space-between;
+      }
+      .tab-btn { font-size: 0.78rem; padding: 0.6rem 0.2rem; }
     }
 
     /* Reduced motion */
@@ -488,7 +519,9 @@
     <div class="wrap header-inner">
       <div class="top-bar">
         <div class="brand">
-          <div class="brand-logo" aria-hidden="true"><img src="https://raw.githubusercontent.com/IamJony/tinytv/refs/heads/main/data/tinytv.png" alt="" loading="eager" onerror="this.style.display='none';this.parentNode.textContent='T';" /></div>
+          <div class="brand-logo" aria-hidden="true">
+            <img src="https://raw.githubusercontent.com/IamJony/tinytv/refs/heads/main/data/tinytv.png" alt="" loading="eager" onerror="this.style.display='none';this.parentNode.textContent='T';" />
+          </div>
           <div>
             <h1>TinyTV</h1>
             <div class="subtitle" id="header-subtitle"></div>
