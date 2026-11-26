@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="TinyTV — Reproductor de streaming ligero con plugins y tienda integrada." />
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/IamJony/tinytv/refs/heads/main/data/tinytv.png" />
+  <title>TinyTV — Streaming ligero</title>
+  <style>
+    /* ====== DESIGN TOKENS ====== */
+    :root {
+      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --transition: 0.2s ease;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.12);
+      --max-width: 1100px;
+    }
+
+    /* Dark theme (default) */
+    [data-theme="dark"] {
+      --bg: #0b0d12;
+      --bg-elevated: #12151c;
+      --surface: #181c24;
+      --surface-2: #1f242e;
+      --surface-3: #2a303c;
+      --text: #e8ecf2;
+      --text-muted: #8b95a5;
+      --accent: #4ea1ff;
+      --accent-hover: #6bb3ff;
+      --accent-contrast: #04101f;
+      --border: #2b3140;
+      --border-subtle: #232834;
+      --ok: #2ecc71;
+      --ok-bg: rgba(46,204,113,0.12);
+      --ok-border: rgba(46,204,113,0.3);
+      --danger: #ff6b6b;
+      --header-bg: rgba(11,13,18,0.85);
+      --overlay: rgba(0,0,0,0.85);
+    }
+
+    /* Light theme */
+    [data-theme="light"] {
+      --bg: #f6f8fb;
+      --bg-elevated: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #eef2f7;
+      --surface-3: #e3e9f1;
+      --text: #1a2233;
+      --text-muted: #5b6577;
+      --accent: #0066e0;
+      --accent-hover: #0052b8;
+      --accent-contrast: #ffffff;
+      --border: #d8e0ea;
+      --border-subtle: #e6ecf3;
+      --ok: #1a9e5a;
+      --ok-bg: rgba(26,158,90,0.1);
+      --ok-border: rgba(26,158,90,0.3);
+      --danger: #d63333;
+      --header-bg: rgba(246,248,251,0.9);
+      --overlay: rgba(10,20,40,0.6);
+    }
+
+    /* ====== RESET ====== */
+    *, *::before, *::after { box-sizing: border-box; }
+    * { margin: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      transition: background var(--transition), color var(--transition);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    img { display: block; max-width: 100%; height: auto; }
+    button { font-family: inherit; }
+    a { color: var(--accent); }
+    a:hover { color: var(--accent-hover); }
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* ====== LAYOUT ====== */
+    .wrap {
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding-inline: clamp(1rem, 3vw, 2rem);
+    }
+
+    /* ====== HEADER ====== */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--header-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .header-inner { padding-block: 1rem 0.85rem; }
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+    .brand-logo {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--accent), #7b5cff);
+      display: grid; place-items: center;
+      color: #fff; font-weight: 800; font-size: 1.1rem;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+    }
+    .brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: inherit;
+      display: block;
+    }
+    h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+    .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.1rem; }
+
+    .controls-right {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    /* Language switch */
+    .lang-switch {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--surface-2);
+    }
+    .lang-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 0.4rem 0.7rem;
+      font-weight: 700;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .lang-btn:hover { color: var(--text); }
+    .lang-btn.active { background: var(--accent); color: var(--accent-contrast); }
+
+    /* Theme toggle */
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px; height: 38px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), transform var(--transition);
+    }
+    .theme-toggle:hover { background: var(--surface-3); transform: translateY(-1px); }
+    .theme-toggle svg { width: 18px; height: 18px; }
+    .theme-toggle .icon-sun { display: none; }
+    [data-theme="light"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="light"] .theme-toggle .icon-moon { display: none; }
+
+    /* ====== BUTTONS ====== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      background: var(--accent);
+      color: var(--accent-contrast);
+      text-decoration: none;
+      font-weight: 600;
+      padding: 0.5rem 0.9rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--accent-hover); color: var(--accent-contrast); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+    .btn:active { transform: translateY(0); }
+    .btn.secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn.secondary:hover { background: var(--surface-3); color: var(--text); }
+    .btn .icon { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ====== NAV TABS ====== */
+    nav {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .tab-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.6rem 1rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: color var(--transition), border-color var(--transition), background var(--transition);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: var(--text); background: var(--surface-2); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ====== MAIN ====== */
+    main {
+      flex: 1;
+      padding-block: clamp(1.25rem, 3vw, 2rem);
+    }
+    .panel { display: none; animation: fadeIn 0.25s ease; }
+    .panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    /* ====== CARDS ====== */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: clamp(1rem, 2.5vw, 1.5rem);
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow-sm);
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .card h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.01em; }
+    .card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+
+    /* ====== FEATURES ====== */
+    .features-list {
+      padding-left: 1.1rem;
+      margin: 0.75rem 0 0;
+      display: grid;
+      gap: 0.5rem;
+    }
+    .features-list li { margin-bottom: 0; font-size: 0.92rem; }
+    .features-list code {
+      background: var(--surface-2);
+      padding: 0.1em 0.4em;
+      border-radius: 4px;
+      font-size: 0.85em;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* ====== GALLERY ====== */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+      gap: 0.85rem;
+      margin-top: 0.85rem;
+    }
+    .shot-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+    }
+    .shot-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .shot-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      background: var(--bg-elevated);
+      transition: transform 0.3s ease;
+    }
+    .shot-card:hover img { transform: scale(1.03); }
+    .shot-caption {
+      padding: 0.5rem 0.7rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    /* ====== PLUGINS ====== */
+    .search-input {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      margin-bottom: 1rem;
+      font-size: 0.92rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(78,161,255,0.15);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+      gap: 1rem;
+    }
+    .plugin-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      display: flex;
+      gap: 0.85rem;
+      align-items: flex-start;
+      transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+    }
+    .plugin-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .plugin-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      object-fit: contain;
+      background: var(--surface-2);
+      border: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    .plugin-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+    .plugin-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      word-break: break-word;
+      line-height: 1.3;
+    }
+    .version-badge {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: var(--ok-bg);
+      color: var(--ok);
+      border: 1px solid var(--ok-border);
+      white-space: nowrap;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .plugin-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 0.35rem;
+      word-break: break-word;
+    }
+
+    .plugin-icon-fallback {
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--accent);
+      background: var(--surface-2);
+      letter-spacing: -0.02em;
+      user-select: none;
+    }
+
+    /* ====== CODE BLOCK ====== */
+    pre {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      color: var(--text);
+      margin-top: 0.75rem;
+    }
+    pre code { white-space: pre; }
+
+    /* ====== UTILS ====== */
+    .muted { color: var(--text-muted); font-size: 0.9rem; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 0.85rem;
+    }
+
+    /* ====== LIGHTBOX ====== */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: var(--overlay);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 100;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      cursor: zoom-out;
+    }
+    .lightbox.open { display: flex; animation: fadeIn 0.2s ease; }
+    .lightbox img {
+      max-width: min(95vw, 1400px);
+      max-height: 88vh;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-lg);
+      cursor: default;
+    }
+
+    /* ====== FOOTER ====== */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.25rem 0;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      text-align: center;
+    }
+    footer a { color: var(--text-muted); text-decoration: none; }
+    footer a:hover { color: var(--accent); }
+
+    /* ====== RESPONSIVE ====== */
+    @media (max-width: 640px) {
+      .top-bar { flex-direction: column; align-items: stretch; }
+      .controls-right { justify-content: space-between; }
+      .brand-logo { width: 36px; height: 36px; }
+      h1 { font-size: 1.2rem; }
+      .subtitle { font-size: 0.8rem; }
+      .tab-btn { flex: 1; text-align: center; font-size: 0.82rem; padding: 0.55rem 0.5rem; }
+      .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); }
+      .shot-card img { height: 120px; }
+      .plugin-card { flex-direction: column; align-items: flex-start; }
+      .plugin-icon { width: 40px; height: 40px; }
+    }
+
+    @media (max-width: 400px) {
+      .controls-right { flex-wrap: wrap; }
+      .btn { flex: 1; justify-content: center; }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap header-inner">
+      <div class="top-bar">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true"><img src="https://raw.githubusercontent.com/IamJony/tinytv/refs/heads/main/data/tinytv.png" alt="" loading="eager" onerror="this.style.display='none';this.parentNode.textContent='T';" /></div>
+          <div>
+            <h1>TinyTV</h1>
+            <div class="subtitle" id="header-subtitle"></div>
+          </div>
+        </div>
+        <div class="controls-right">
+          <div class="lang-switch" role="group" aria-label="Idioma">
+            <button type="button" class="lang-btn active" data-lang="es">ES</button>
+            <button type="button" class="lang-btn" data-lang="en">EN</button>
+          </div>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <a class="btn secondary" id="link-repo" href="https://github.com/IamJony/tinytv" target="_blank" rel="noopener"></a>
+        </div>
+      </div>
+      <nav aria-label="Secciones principales">
+        <button class="tab-btn active" data-tab="presentacion" id="tab-presentacion"></button>
+        <button class="tab-btn" data-tab="plugins" id="tab-plugins"></button>
+        <button class="tab-btn" data-tab="descargar" id="tab-descargar"></button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- PRESENTACIÓN -->
+    <section id="presentacion" class="panel active">
+      <div class="card">
+        <h2 id="about-title"></h2>
+        <p id="about-body" style="margin-bottom: 1.25rem;"></p>
+        
+        <!-- Tech Stack Badges -->
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem;">
+          <span style="background: var(--surface-2); border: 1px solid var(--border); padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Construido sobre FLTK</span>
+          <span style="background: var(--surface-2); border: 1px solid var(--border); padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">QuickJS</span>
+          <span style="background: var(--surface-2); border: 1px solid var(--border); padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Plugins</span>
+          <span style="background: var(--ok-bg); border: 1px solid var(--ok-border); padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; color: var(--ok);">Inspirado en Grayjay</span>
+        </div>
+        <ul class="features-list" id="features-list"></ul>
+      </div>
+
+      <div class="card">
+        <h2 id="gallery-title"></h2>
+        <p class="muted" id="gallery-hint"></p>
+        <div class="gallery-grid" id="ui-gallery"></div>
+      </div>
+    </section>
+
+    <!-- PLUGINS -->
+    <section id="plugins" class="panel">
+      <input
+        type="search"
+        id="plugin-search"
+        class="search-input"
+        aria-label="Buscar plugins"
+      />
+      <div id="plugins-status" class="muted"></div>
+      <div id="plugins-grid" class="grid"></div>
+    </section>
+
+    <!-- DESCARGAR -->
+    <section id="descargar" class="panel">
+      <div class="card">
+        <h2 id="dl-title"></h2>
+        <p class="muted" id="dl-subtitle"></p>
+        <div id="releases-box"></div>
+      </div>
+      <div class="card">
+        <h3 id="build-title"></h3>
+        <pre><code>git clone https://github.com/IamJony/tinytv.git
+cd tinytv
+sudo apt update
+sudo apt install build-essential git libcurl4-openssl-dev libfltk1.3-dev libwebp-dev mplayer
+chmod +x make_deb.sh
+./make_deb.sh</code></pre>
+      </div>
+
+      <div class="card" id="flinux-card">
+        <h3 id="flinux-title">Instalación en FLinux / Tiny Core</h3>
+        <p id="flinux-text" class="muted" style="margin-bottom: 1rem;"></p>
+        
+        <div style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+          <strong>1. Clonar el repositorio:</strong>
+        </div>
+        <pre><code>git clone https://github.com/IamJony/tinytv.git
+cd tinytv</code></pre>
+
+        <div style="font-size: 0.9rem; margin-top: 1rem; margin-bottom: 0.5rem;">
+          <strong>2. Instalar el paquete .tcz precompilado (32 bits):</strong>
+        </div>
+        <pre><code># Mueve el paquete al directorio de extensiones de Tiny Core
+sudo cp tinytv.tcz /etc/sysconfig/tcedir/optional/
+echo "tinytv.tcz" | sudo tee -a /etc/sysconfig/tcedir/onboot.lst
+sudo tce-load -i tinytv.tcz</code></pre>
+
+        <div class="actions" style="margin-top: 1.25rem;">
+          <a class="btn" id="flinux-guide" href="https://github.com/IamJony/tinytv/blob/main/README.md" target="_blank" rel="noopener"></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      TinyTV · <a href="https://github.com/IamJony/tinytv" target="_blank" rel="noopener">GitHub</a> · Fork de <a href="https://gitlab.com/AnddyCort/Sanson-FLinux" target="_blank" rel="noopener">Sanson</a>
+    </div>
+  </footer>
+
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-label="Vista ampliada de captura">
+    <img id="lightbox-img" src="" alt="" />
+  </div>
+
+  <script>
+    const PLUGINS_JSON_URL = "https://raw.githubusercontent.com/IamJony/plugins-tinytv/refs/heads/main/index.json";
+    const PLUGINS_RAW_BASE = "https://raw.githubusercontent.com/IamJony/plugins-tinytv/refs/heads/main/";
+    const TINYTV_RAW_BASE = "https://raw.githubusercontent.com/IamJony/tinytv/refs/heads/main/";
+    const RELEASES_API_URL = "https://api.github.com/repos/IamJony/tinytv/releases";
+
+    const I18N = {
+      es: {
+        subtitle: "Reproduce contenido streaming de diversas plataformas de manera rápida y ligera",
+        repoBtn: "Repositorio",
+        tabPresentacion: "Presentación",
+        tabPlugins: "Plugins",
+        tabDescargar: "Instalación",
+        aboutTitle: "Sobre TinyTV",
+        aboutBody: "<strong>TinyTV</strong> es un fork de <a href=\"https://gitlab.com/AnddyCort/Sanson-FLinux\" target=\"_blank\" rel=\"noopener\"><strong>Sanson</strong></a> diseñado para reproducir contenido streaming de diversas plataformas de manera rápida y ligera. Cuenta con soporte de plugins externos y tienda integrada, inspirado en la arquitectura de Grayjay.",
+        features: [
+          "<strong>Plugins dinámicos:</strong> carga extensiones desde <code>~/.config/tinytv/plugins</code> y rutas del sistema.",
+          "<strong>Tienda integrada:</strong> explora el catálogo remoto, instala o desinstala plugins y revisa versiones.",
+          "<strong>Cookies flexibles:</strong> admite cabecera HTTP (<code>Cookie: ...</code> / <code>clave=valor</code>) y formato Netscape (<code>cookies.txt</code>).",
+          "<strong>Pensado para equipos modestos:</strong> calidad ajustable, modo de video liviano y adaptación a pantallas de 800×600."
+        ],
+        galleryTitle: "Capturas de la interfaz",
+        galleryHint: "Clic en una imagen para ampliarla.",
+        shots: [
+          { file: "capturas/ui.png", label: "Interfaz principal (ui.png)" },
+          { file: "capturas/ui3.png", label: "Vista de interfaz (ui3.png)" },
+          { file: "capturas/ui4.png", label: "Vista de interfaz (ui4.png)" },
+          { file: "capturas/ui5.png", label: "Vista de interfaz (ui5.png)" }
+        ],
+        searchPlaceholder: "Buscar plugin por nombre o descripción...",
+        loadingPlugins: "Cargando catálogo...",
+        errorPlugins: "No se pudo cargar index.json",
+        showingPlugins: (shown, total) => `${shown} de ${total} plugins`,
+        noDesc: "Sin descripción.",
+        dlTitle: "Paquete .deb y código fuente",
+        dlSubtitle: "Última release de IamJony/tinytv.",
+        loadingReleases: "Consultando releases...",
+        noReleases: "No hay releases publicados.",
+        viewSource: "Ver código fuente",
+        downloadDeb: (name, mb) => `Descargar ${name} (${mb} MB)`,
+        viewReleaseFiles: (tag) => `Ver archivos de ${tag}`,
+        latestRelease: (title, tag) => `<strong>Última versión:</strong> ${title} (<code>${tag}</code>)`,
+        sourceTar: "Código fuente (.tar.gz)",
+        errorReleases: "No se pudo consultar la API de releases",
+        goReleases: "Ir a Releases",
+        buildTitle: "Compilar desde el código fuente",
+        flinuxTitle: "Instalación en FLinux / Tiny Core",
+        flinuxText: "Para FLinux y Tiny Core, sigue estos pasos. El paquete precompilado .tcz (32 bits) ya incluye las dependencias necesarias.",
+        flinuxGuide: "Ver repositorio en GitHub"
+      },
+      en: {
+        subtitle: "Sanson fork to stream content from multiple platforms fast and lightweight",
+        repoBtn: "Repository",
+        tabPresentacion: "Overview",
+        tabPlugins: "Plugins",
+        tabDescargar: "Install",
+        aboutTitle: "About TinyTV",
+        aboutBody: "<strong>TinyTV</strong> is a fork of <a href=\"https://gitlab.com/AnddyCort/Sanson-FLinux\" target=\"_blank\" rel=\"noopener\"><strong>Sanson</strong></a> built to stream content from multiple platforms fast and lightweight. It features external plugin support and an integrated store, inspired by Grayjay's architecture.",
+        features: [
+          "<strong>Dynamic plugins:</strong> loads extensions from <code>~/.config/tinytv/plugins</code> and system paths.",
+          "<strong>Built-in store:</strong> browse the remote catalog, install or remove plugins, and check versions.",
+          "<strong>Flexible cookies:</strong> supports HTTP headers (<code>Cookie: ...</code> / <code>key=value</code>) and Netscape format (<code>cookies.txt</code>).",
+          "<strong>Built for low-spec hardware:</strong> selectable quality, lightweight video mode, and 800×600 screen support."
+        ],
+        galleryTitle: "Interface screenshots",
+        galleryHint: "Click any image to zoom in.",
+        shots: [
+          { file: "capturas/ui.png", label: "Main interface (ui.png)" },
+          { file: "capturas/ui3.png", label: "Interface view (ui3.png)" },
+          { file: "capturas/ui4.png", label: "Interface view (ui4.png)" },
+          { file: "capturas/ui5.png", label: "Interface view (ui5.png)" }
+        ],
+        searchPlaceholder: "Search plugins by name or description...",
+        loadingPlugins: "Loading catalog...",
+        errorPlugins: "Failed to load index.json",
+        showingPlugins: (shown, total) => `${shown} of ${total} plugins`,
+        noDesc: "No description.",
+        dlTitle: "Install",
+        dlSubtitle: "Fetched from IamJony/tinytv releases.",
+        loadingReleases: "Fetching releases...",
+        noReleases: "No releases published yet.",
+        viewSource: "View source code",
+        downloadDeb: (name, mb) => `Download ${name} (${mb} MB)`,
+        viewReleaseFiles: (tag) => `View ${tag} assets`,
+        latestRelease: (title, tag) => `<strong>Latest release:</strong> ${title} (<code>${tag}</code>)`,
+        sourceTar: "Source archive (.tar.gz)",
+        errorReleases: "Failed to query the releases API",
+        goReleases: "Go to Releases",
+        buildTitle: "Build from source",
+        flinuxTitle: "Install on FLinux / Tiny Core",
+        flinuxText: "For FLinux and Tiny Core, follow these steps. The precompiled .tcz package (32-bit) already includes the necessary dependencies.",
+        flinuxGuide: "View repository on GitHub"
+      }
+    };
+
+    let currentLang = "es";
+    let allPlugins = [];
+    let cachedReleases = null;
+    let releasesError = null;
+
+    function t() {
+      return I18N[currentLang];
+    }
+
+    function resolveUrl(pathOrUrl, base = PLUGINS_RAW_BASE) {
+      if (!pathOrUrl) return "";
+      if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+      return base + pathOrUrl.replace(/^\/+/, "");
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderStaticText() {
+      const dict = t();
+      document.documentElement.lang = currentLang;
+      document.getElementById("header-subtitle").textContent = dict.subtitle;
+      document.getElementById("link-repo").textContent = dict.repoBtn;
+      document.getElementById("tab-presentacion").textContent = dict.tabPresentacion;
+      document.getElementById("tab-plugins").textContent = dict.tabPlugins;
+      document.getElementById("tab-descargar").textContent = dict.tabDescargar;
+      document.getElementById("about-title").textContent = dict.aboutTitle;
+      document.getElementById("about-body").innerHTML = dict.aboutBody;
+      document.getElementById("features-list").innerHTML = dict.features.map((item) => `<li>${item}</li>`).join("");
+      document.getElementById("gallery-title").textContent = dict.galleryTitle;
+      document.getElementById("gallery-hint").textContent = dict.galleryHint;
+      document.getElementById("plugin-search").placeholder = dict.searchPlaceholder;
+      document.getElementById("dl-title").textContent = dict.dlTitle;
+      document.getElementById("dl-subtitle").textContent = dict.dlSubtitle;
+      document.getElementById("build-title").textContent = dict.buildTitle;
+      const flinuxTitle = document.getElementById("flinux-title");
+      const flinuxText  = document.getElementById("flinux-text");
+      const flinuxGuide = document.getElementById("flinux-guide");
+      if (flinuxTitle) flinuxTitle.textContent = dict.flinuxTitle;
+      if (flinuxText)  flinuxText.textContent  = dict.flinuxText;
+      if (flinuxGuide) flinuxGuide.textContent = dict.flinuxGuide;
+      renderGallery();
+      renderPlugins(document.getElementById("plugin-search").value);
+      renderReleases();
+    }
+
+    function renderGallery() {
+      const galleryEl = document.getElementById("ui-gallery");
+      galleryEl.innerHTML = t().shots.map((shot) => {
+        const url = resolveUrl(shot.file, TINYTV_RAW_BASE);
+        return `
+          <figure class="shot-card" style="margin:0" data-src="${escapeHtml(url)}" data-alt="${escapeHtml(shot.label)}">
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(shot.label)}" loading="lazy" onerror="this.closest('.shot-card').style.display='none'" />
+            <figcaption class="shot-caption">${escapeHtml(shot.label)}</figcaption>
+          </figure>
+        `;
+      }).join("");
+    }
+
+    // Theme toggle
+    const themeToggle = document.getElementById("theme-toggle");
+    const root = document.documentElement;
+
+    function applyTheme(theme) {
+      root.setAttribute("data-theme", theme);
+      try { localStorage.setItem("tinytv-theme", theme); } catch (e) {}
+    }
+
+    (function initTheme() {
+      // Dark por defecto; solo cambia si el usuario lo eligió explícitamente
+      let saved = null;
+      try { saved = localStorage.getItem("tinytv-theme"); } catch (e) {}
+      applyTheme(saved === "light" || saved === "dark" ? saved : "dark");
+    })();
+
+    themeToggle.addEventListener("click", () => {
+      const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      applyTheme(next);
+    });
+
+    // Cambio de idioma ES / EN
+    document.querySelectorAll(".lang-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        currentLang = btn.dataset.lang;
+        document.querySelectorAll(".lang-btn").forEach((b) => {
+          b.classList.toggle("active", b.dataset.lang === currentLang);
+        });
+        renderStaticText();
+      });
+    });
+
+    // Navegación por pestañas
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    // Lightbox de capturas
+    const galleryEl = document.getElementById("ui-gallery");
+    const lightboxEl = document.getElementById("lightbox");
+    const lightboxImgEl = document.getElementById("lightbox-img");
+
+    galleryEl.addEventListener("click", (e) => {
+      const card = e.target.closest(".shot-card");
+      if (!card) return;
+      lightboxImgEl.src = card.dataset.src;
+      lightboxImgEl.alt = card.dataset.alt;
+      lightboxEl.classList.add("open");
+      lightboxEl.setAttribute("aria-hidden", "false");
+    });
+
+    lightboxEl.addEventListener("click", () => {
+      lightboxEl.classList.remove("open");
+      lightboxEl.setAttribute("aria-hidden", "true");
+      lightboxImgEl.src = "";
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && lightboxEl.classList.contains("open")) {
+        lightboxEl.click();
+      }
+    });
+
+    function renderPlugins(filterText = "") {
+      const dict = t();
+      const status = document.getElementById("plugins-status");
+      const grid = document.getElementById("plugins-grid");
+
+      if (!allPlugins.length && status.dataset.error) {
+        status.textContent = `${dict.errorPlugins} (${status.dataset.error}).`;
+        return;
+      }
+
+      if (!allPlugins.length) {
+        status.textContent = dict.loadingPlugins;
+        return;
+      }
+
+      const q = filterText.trim().toLowerCase();
+      const filtered = allPlugins.filter((p) => {
+        const name = (p.name || p.title || p.id || "").toLowerCase();
+        const desc = (p.description || p.desc || "").toLowerCase();
+        return !q || name.includes(q) || desc.includes(q);
+      });
+
+      status.textContent = dict.showingPlugins(filtered.length, allPlugins.length);
+
+      grid.innerHTML = filtered.map((p) => {
+        const name = p.name || p.title || p.id || "Plugin";
+        const version = p.version || p.latest_version || "";
+        const desc = p.description || p.desc || dict.noDesc;
+        const iconRaw = p.icon_url || p.iconUrl || p.icon || p.logo_url || p.logo || p.image || p.thumbnail || "";
+        const iconUrl = resolveUrl(iconRaw, PLUGINS_RAW_BASE);
+
+        return `
+          <article class="plugin-card">
+            ${iconUrl
+              ? `<img class="plugin-icon" src="${escapeHtml(iconUrl)}" alt="${escapeHtml(name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.outerHTML='<div class=\'plugin-icon plugin-icon-fallback\'>${escapeHtml((name||'?').slice(0,2).toUpperCase())}</div>';" />`
+              : `<div class="plugin-icon plugin-icon-fallback">${escapeHtml((name||'?').slice(0,2).toUpperCase())}</div>`}
+            <div style="flex:1;min-width:0">
+              <div class="plugin-head">
+                <span class="plugin-name">${escapeHtml(name)}</span>
+                ${version ? `<span class="version-badge">v${escapeHtml(String(version).replace(/^v/i, ""))}</span>` : ""}
+              </div>
+              <p class="plugin-desc">${escapeHtml(desc)}</p>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function loadPlugins() {
+      const status = document.getElementById("plugins-status");
+      status.textContent = t().loadingPlugins;
+      try {
+        const res = await fetch(PLUGINS_JSON_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        allPlugins = Array.isArray(data) ? data : (data.plugins || []);
+        renderPlugins(document.getElementById("plugin-search").value);
+      } catch (err) {
+        status.dataset.error = err.message;
+        status.textContent = `${t().errorPlugins} (${err.message}).`;
+      }
+    }
+
+    function renderReleases() {
+      const dict = t();
+      const box = document.getElementById("releases-box");
+
+      if (releasesError) {
+        box.innerHTML = `
+          <p class="muted">${dict.errorReleases} (${escapeHtml(releasesError)}).</p>
+          <div class="actions">
+            <a class="btn" href="https://github.com/IamJony/tinytv/releases" target="_blank" rel="noopener">${dict.goReleases}</a>
+            <a class="btn secondary" href="https://github.com/IamJony/tinytv" target="_blank" rel="noopener">${dict.viewSource}</a>
+          </div>
+        `;
+        return;
+      }
+
+      if (!cachedReleases) {
+        box.textContent = dict.loadingReleases;
+        return;
+      }
+
+      if (!Array.isArray(cachedReleases) || cachedReleases.length === 0) {
+        box.innerHTML = `
+          <p class="muted">${dict.noReleases}</p>
+          <a class="btn" href="https://github.com/IamJony/tinytv" target="_blank" rel="noopener">${dict.viewSource}</a>
+        `;
+        return;
+      }
+
+      const latest = cachedReleases[0];
+      const debAssets = (latest.assets || []).filter((a) => a.name.endsWith(".deb"));
+
+      const debButtons = debAssets.length
+        ? debAssets.map((a) => {
+            const mb = (a.size / (1024 * 1024)).toFixed(2);
+            return `<a class="btn" href="${escapeHtml(a.browser_download_url)}" download>${escapeHtml(dict.downloadDeb(a.name, mb))}</a>`;
+          }).join("")
+        : `<a class="btn" href="${escapeHtml(latest.html_url)}" target="_blank" rel="noopener">${escapeHtml(dict.viewReleaseFiles(latest.tag_name))}</a>`;
+
+      box.innerHTML = `
+        <p>${dict.latestRelease(escapeHtml(latest.name || latest.tag_name), escapeHtml(latest.tag_name))}</p>
+        <div class="actions">
+          ${debButtons}
+          ${latest.tarball_url ? `<a class="btn secondary" href="${escapeHtml(latest.tarball_url)}">${dict.sourceTar}</a>` : ""}
+          <a class="btn secondary" href="https://github.com/IamJony/tinytv" target="_blank" rel="noopener">${dict.viewSource}</a>
+        </div>
+      `;
+    }
+
+    async function loadReleases() {
+      document.getElementById("releases-box").textContent = t().loadingReleases;
+      try {
+        const res = await fetch(RELEASES_API_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        cachedReleases = await res.json();
+        renderReleases();
+      } catch (err) {
+        releasesError = err.message;
+        renderReleases();
+      }
+    }
+
+    document.getElementById("plugin-search").addEventListener("input", (e) => {
+      renderPlugins(e.target.value);
+    });
+
+    renderStaticText();
+    loadPlugins();
+    loadReleases();
+  </script>
+</body>
+</html>
